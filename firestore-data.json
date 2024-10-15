@@ -1,0 +1,73 @@
+[
+  {
+    "id": "CE006984",
+    "model": "Galant",
+    "photos": [],
+    "licensePlate": "CB588",
+    "VIN": "CE006984",
+    "status": "Available",
+    "mileage": "",
+    "year": "2012",
+    "make": "Mitsubishi",
+    "fuelStatus": "Full"
+  },
+  {
+    "id": "KZ023143",
+    "VIN": "KZ023143",
+    "model": "Eclipse",
+    "make": "Mitsubishi",
+    "status": "Available",
+    "fuelStatus": "Full",
+    "licensePlate": "UW101",
+    "year": "2020",
+    "photos": []
+  },
+  {
+    "id": "LG430767",
+    "make": "KIA",
+    "photos": [],
+    "licensePlate": "TV651",
+    "fuelStatus": "Full",
+    "year": "2020",
+    "VIN": "LG430767",
+    "mileage": "",
+    "model": "Optima",
+    "status": "Available "
+  },
+  {
+    "id": "LZ032916",
+    "status": "Available",
+    "licensePlate": "WQ262",
+    "photos": [],
+    "make": "Mitsubishi",
+    "mileage": "",
+    "VIN": "LZ032916",
+    "model": "Eclipse",
+    "year": "2020",
+    "fuelStatus": "Full"
+  },
+  {
+    "id": "MU021536",
+    "photos": [],
+    "mileage": "",
+    "make": "Mitsubishi",
+    "model": "Outlander Sport",
+    "VIN": "MU021536",
+    "status": "Available",
+    "licensePlate": "1IF914",
+    "year": "2021",
+    "fuelStatus": "Full"
+  },
+  {
+    "id": "MU036344",
+    "make": "Mitsubishi",
+    "fuelStatus": "Full",
+    "year": "2021",
+    "photos": [],
+    "mileage": "",
+    "VIN": "MU036344",
+    "status": "Available ",
+    "model": "Outlander Sport",
+    "licensePlate": "1LS299"
+  }
+]
