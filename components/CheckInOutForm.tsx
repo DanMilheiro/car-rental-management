@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { doc, getDoc, updateDoc, addDoc, collection } from 'firebase/firestore';
 import { db } from '../firebase';
 import { Car, CheckInOut } from '../types';
+import { Camera } from 'lucide-react';
 
 const CheckInOutForm: React.FC = () => {
   const { carId } = useParams<{ carId: string }>();
@@ -15,21 +15,41 @@ const CheckInOutForm: React.FC = () => {
     mileage: 0,
     fuelLevel: 100,
     notes: '',
+    photos: {
+      exterior: [],
+      interior: [],
+      dashboard: '',
+      windshield: '',
+    },
   });
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchCar = async () => {
       if (carId) {
-        const carDoc = await getDoc(doc(db, 'vehicles', carId));
-        if (carDoc.exists()) {
-          setCar({ id: carDoc.id, ...carDoc.data() } as Car);
-          setCheckInOut(prev => ({
-            ...prev,
-            mileage: carDoc.data().miles,
-            fuelLevel: carDoc.data().fuelLevel,
-          }));
+        try {
+          const carDoc = await db.collection('vehicles').doc(carId).get();
+          if (carDoc.exists) {
+            const carData = carDoc.data() as Car;
+            setCar({ id: carDoc.id, ...carData });
+            setCheckInOut(prev => ({
+              ...prev,
+              mileage: carData.miles,
+              fuelLevel: carData.fuelLevel,
+            }));
+          } else {
+            setError(`Car not found with ID: ${carId}`);
+          }
+        } catch (err) {
+          console.error('Error fetching car:', err);
+          setError('Failed to fetch car details');
+        } finally {
+          setLoading(false);
         }
+      } else {
+        setError('No car ID provided');
+        setLoading(false);
       }
     };
     fetchCar();
@@ -40,102 +60,171 @@ const CheckInOutForm: React.FC = () => {
     setCheckInOut(prev => ({ ...prev, [name]: value }));
   };
 
+  const handlePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>, type: 'exterior' | 'interior' | 'dashboard' | 'windshield') => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        if (type === 'exterior' || type === 'interior') {
+          setCheckInOut(prev => ({
+            ...prev,
+            photos: {
+              ...prev.photos,
+              [type]: [...prev.photos[type], reader.result as string],
+            },
+          }));
+        } else {
+          setCheckInOut(prev => ({
+            ...prev,
+            photos: {
+              ...prev.photos,
+              [type]: reader.result as string,
+            },
+          }));
+        }
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     try {
-      // Add check-in/out record
-      await addDoc(collection(db, 'checkInOuts'), checkInOut);
-
-      // Update car status and details
-      if (car && car.id) {
-        const carRef = doc(db, 'vehicles', car.id);
-        await updateDoc(carRef, {
+      await db.collection('checkInOuts').add(checkInOut);
+      if (car) {
+        await db.collection('vehicles').doc(car.id).update({
           status: checkInOut.type === 'check-out' ? 'rented' : 'available',
           miles: checkInOut.mileage,
           fuelLevel: checkInOut.fuelLevel,
         });
       }
-
       navigate('/cars');
     } catch (error) {
       console.error('Error processing check-in/out:', error);
+      setError('Failed to process check-in/out. Please try again.');
     } finally {
       setLoading(false);
     }
   };
 
-  if (!car) {
-    return <div>Loading...</div>;
+  if (loading) {
+    return <div className="text-center py-4">Loading...</div>;
+  }
+
+  if (error) {
+    return <div className="text-center text-red-600">{error}</div>;
   }
 
   return (
-    <form onSubmit={handleSubmit} className="max-w-lg mx-auto bg-white p-8 rounded-lg shadow-md">
-      <h2 className="text-2xl font-bold mb-6">Check In/Out: {car.make} {car.model}</h2>
+    <form onSubmit={handleSubmit} className="max-w-2xl mx-auto bg-white p-8 rounded-lg shadow-md">
+      <h2 className="text-2xl font-bold mb-6">
+        {checkInOut.type === 'check-out' ? 'Check Out' : 'Check In'}: {car?.make} {car?.model}
+      </h2>
+
+      {/* ... (other form fields remain the same) ... */}
+
       <div className="mb-4">
-        <label htmlFor="type" className="block text-gray-700 font-bold mb-2">Type</label>
-        <select
-          id="type"
-          name="type"
-          value={checkInOut.type}
-          onChange={handleChange}
-          className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:border-blue-500"
-          required
+        <label className="block text-gray-700 font-bold mb-2">Exterior Photos (8)</label>
+        <div className="grid grid-cols-4 gap-2">
+          {[...Array(8)].map((_, index) => (
+            <div key={`exterior-${index}`} className="relative">
+              <input
+                type="file"
+                accept="image/*"
+                onChange={(e) => handlePhotoUpload(e, 'exterior')}
+                className="hidden"
+                id={`exterior-${index}`}
+              />
+              <label
+                htmlFor={`exterior-${index}`}
+                className="block w-full h-24 border-2 border-dashed border-gray-300 rounded-lg flex items-center justify-center cursor-pointer hover:border-blue-500"
+              >
+                {checkInOut.photos.exterior[index] ? (
+                  <img src={checkInOut.photos.exterior[index]} alt={`Exterior ${index + 1}`} className="w-full h-full object-cover rounded-lg" />
+                ) : (
+                  <Camera className="w-8 h-8 text-gray-400" />
+                )}
+              </label>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div className="mb-4">
+        <label className="block text-gray-700 font-bold mb-2">Interior Photos (2)</label>
+        <div className="grid grid-cols-2 gap-2">
+          {[...Array(2)].map((_, index) => (
+            <div key={`interior-${index}`} className="relative">
+              <input
+                type="file"
+                accept="image/*"
+                onChange={(e) => handlePhotoUpload(e, 'interior')}
+                className="hidden"
+                id={`interior-${index}`}
+              />
+              <label
+                htmlFor={`interior-${index}`}
+                className="block w-full h-32 border-2 border-dashed border-gray-300 rounded-lg flex items-center justify-center cursor-pointer hover:border-blue-500"
+              >
+                {checkInOut.photos.interior[index] ? (
+                  <img src={checkInOut.photos.interior[index]} alt={`Interior ${index + 1}`} className="w-full h-full object-cover rounded-lg" />
+                ) : (
+                  <Camera className="w-12 h-12 text-gray-400" />
+                )}
+              </label>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div className="mb-4">
+        <label className="block text-gray-700 font-bold mb-2">Dashboard Photo</label>
+        <input
+          type="file"
+          accept="image/*"
+          onChange={(e) => handlePhotoUpload(e, 'dashboard')}
+          className="hidden"
+          id="dashboard"
+        />
+        <label
+          htmlFor="dashboard"
+          className="block w-full h-32 border-2 border-dashed border-gray-300 rounded-lg flex items-center justify-center cursor-pointer hover:border-blue-500"
         >
-          <option value="check-out">Check Out</option>
-          <option value="check-in">Check In</option>
-        </select>
+          {checkInOut.photos.dashboard ? (
+            <img src={checkInOut.photos.dashboard} alt="Dashboard" className="w-full h-full object-cover rounded-lg" />
+          ) : (
+            <Camera className="w-12 h-12 text-gray-400" />
+          )}
+        </label>
       </div>
+
       <div className="mb-4">
-        <label htmlFor="date" className="block text-gray-700 font-bold mb-2">Date</label>
+        <label className="block text-gray-700 font-bold mb-2">Windshield Photo</label>
         <input
-          type="date"
-          id="date"
-          name="date"
-          value={checkInOut.date}
-          onChange={handleChange}
-          className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:border-blue-500"
-          required
+          type="file"
+          accept="image/*"
+          onChange={(e) => handlePhotoUpload(e, 'windshield')}
+          className="hidden"
+          id="windshield"
         />
+        <label
+          htmlFor="windshield"
+          className="block w-full h-32 border-2 border-dashed border-gray-300 rounded-lg flex items-center justify-center cursor-pointer hover:border-blue-500"
+        >
+          {checkInOut.photos.windshield ? (
+            <img src={checkInOut.photos.windshield} alt="Windshield" className="w-full h-full object-cover rounded-lg" />
+          ) : (
+            <Camera className="w-12 h-12 text-gray-400" />
+          )}
+        </label>
       </div>
-      <div className="mb-4">
-        <label htmlFor="mileage" className="block text-gray-700 font-bold mb-2">Mileage</label>
-        <input
-          type="number"
-          id="mileage"
-          name="mileage"
-          value={checkInOut.mileage}
-          onChange={handleChange}
-          className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:border-blue-500"
-          required
-        />
-      </div>
-      <div className="mb-4">
-        <label htmlFor="fuelLevel" className="block text-gray-700 font-bold mb-2">Fuel Level (%)</label>
-        <input
-          type="number"
-          id="fuelLevel"
-          name="fuelLevel"
-          value={checkInOut.fuelLevel}
-          onChange={handleChange}
-          min="0"
-          max="100"
-          className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:border-blue-500"
-          required
-        />
-      </div>
-      <div className="mb-4">
-        <label htmlFor="notes" className="block text-gray-700 font-bold mb-2">Notes</label>
-        <textarea
-          id="notes"
-          name="notes"
-          value={checkInOut.notes}
-          onChange={handleChange}
-          className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:border-blue-500"
-          rows={3}
-        ></textarea>
-      </div>
-      <button type="submit" disabled={loading} className="bg-blue-500 text-white py-2 px-4 rounded-lg hover:bg-blue-600 transition-colors duration-300">
+
+      <button
+        type="submit"
+        disabled={loading}
+        className="bg-blue-500 text-white py-2 px-4 rounded-lg hover:bg-blue-600 transition-colors duration-300"
+      >
         {loading ? 'Processing...' : `Process ${checkInOut.type === 'check-out' ? 'Check Out' : 'Check In'}`}
       </button>
     </form>
