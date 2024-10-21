@@ -1,26 +1,38 @@
 import React, { useState, useEffect } from 'react';
-import { collection, getDocs, query, where } from 'firebase/firestore';
-import { db } from '../firebase';
-import { Reservation } from '../types';
+import { db, query, where } from '../firebase';
+import { Reservation, Car } from '../types';
 import { Link } from 'react-router-dom';
+import { Edit, CheckSquare, AlertCircle } from 'lucide-react';
 
 const ReservationList: React.FC = () => {
-  const [reservations, setReservations] = useState<Reservation[]>([]);
+  const [reservations, setReservations] = useState<(Reservation & { car?: Car })[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchReservations = async () => {
       try {
-        const reservationsCollection = collection(db, 'reservations');
-        const activeReservationsQuery = query(reservationsCollection, where('status', 'in', ['upcoming', 'active']));
-        const reservationsSnapshot = await getDocs(activeReservationsQuery);
+        const reservationsCollection = db.collection('reservations');
+        const activeReservationsQuery = query('reservations', [where('status', 'in', ['upcoming', 'active'])]);
+        const reservationsSnapshot = await activeReservationsQuery.get();
         const reservationsList = reservationsSnapshot.docs.map(doc => ({
           id: doc.id,
           ...doc.data(),
         } as Reservation));
-        setReservations(reservationsList);
+
+        // Fetch car details for each reservation
+        const reservationsWithCars = await Promise.all(
+          reservationsList.map(async (reservation) => {
+            const carDoc = await db.collection('vehicles').doc(reservation.carId).get();
+            const carData = carDoc.data() as Car;
+            return { ...reservation, car: carData };
+          })
+        );
+
+        setReservations(reservationsWithCars);
       } catch (error) {
         console.error('Error fetching reservations:', error);
+        setError('Failed to fetch reservations. Please try again later.');
       } finally {
         setLoading(false);
       }
@@ -31,6 +43,10 @@ const ReservationList: React.FC = () => {
 
   if (loading) {
     return <div className="text-center py-4">Loading reservations...</div>;
+  }
+
+  if (error) {
+    return <div className="text-center text-red-600">{error}</div>;
   }
 
   return (
@@ -55,17 +71,32 @@ const ReservationList: React.FC = () => {
             {reservations.map((reservation) => (
               <tr key={reservation.id}>
                 <td className="border px-4 py-2">{reservation.customerName}</td>
-                <td className="border px-4 py-2">{reservation.carId}</td>
+                <td className="border px-4 py-2">
+                  {reservation.car ? `${reservation.car.make} ${reservation.car.model}` : 'Loading...'}
+                </td>
                 <td className="border px-4 py-2">{reservation.startDate}</td>
                 <td className="border px-4 py-2">{reservation.endDate}</td>
                 <td className="border px-4 py-2">{reservation.status}</td>
                 <td className="border px-4 py-2">
-                  <Link to={`/edit-reservation/${reservation.id}`} className="text-blue-500 hover:text-blue-700 mr-2">
-                    Edit
-                  </Link>
-                  <Link to={`/check-in-out/${reservation.carId}`} className="text-green-500 hover:text-green-700">
-                    Check In/Out
-                  </Link>
+                  <div className="flex space-x-2">
+                    <Link to={`/edit-reservation/${reservation.id}`} className="text-blue-500 hover:text-blue-700">
+                      <Edit className="h-5 w-5" />
+                    </Link>
+                    {reservation.car && reservation.car.id ? (
+                      <Link 
+                        to={`/check-in-out/${reservation.car.id}`} 
+                        className="bg-green-500 hover:bg-green-600 text-white font-bold py-1 px-2 rounded flex items-center"
+                      >
+                        <CheckSquare className="h-5 w-5 mr-1" />
+                        Check In/Out
+                      </Link>
+                    ) : (
+                      <span className="text-red-500 flex items-center" title="Car not available">
+                        <AlertCircle className="h-5 w-5 mr-1" />
+                        No Car
+                      </span>
+                    )}
+                  </div>
                 </td>
               </tr>
             ))}
