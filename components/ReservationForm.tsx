@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { collection, addDoc, doc, getDoc, updateDoc } from 'firebase/firestore';
 import { db } from '../firebase';
 import { Reservation, Car } from '../types';
 
@@ -19,8 +18,8 @@ const ReservationForm: React.FC = () => {
 
   useEffect(() => {
     const fetchCars = async () => {
-      const carsCollection = collection(db, 'vehicles');
-      const carsSnapshot = await getDocs(carsCollection);
+      const carsCollection = db.collection('vehicles');
+      const carsSnapshot = await carsCollection.get();
       const carsList = carsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Car));
       setCars(carsList);
     };
@@ -29,8 +28,8 @@ const ReservationForm: React.FC = () => {
 
     if (id) {
       const fetchReservation = async () => {
-        const reservationDoc = await getDoc(doc(db, 'reservations', id));
-        if (reservationDoc.exists()) {
+        const reservationDoc = await db.collection('reservations').doc(id).get();
+        if (reservationDoc.exists) {
           setReservation({ id: reservationDoc.id, ...reservationDoc.data() } as Reservation);
         }
       };
@@ -40,7 +39,7 @@ const ReservationForm: React.FC = () => {
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
-    setReservation(prevReservation => ({ ...prevReservation, [name]: value }));
+    setReservation(prev => ({ ...prev, [name]: value }));
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -48,9 +47,9 @@ const ReservationForm: React.FC = () => {
     setLoading(true);
     try {
       if (id) {
-        await updateDoc(doc(db, 'reservations', id), reservation);
+        await db.collection('reservations').doc(id).update(reservation);
       } else {
-        await addDoc(collection(db, 'reservations'), reservation);
+        await db.collection('reservations').add(reservation);
       }
       navigate('/reservations');
     } catch (error) {
@@ -70,7 +69,7 @@ const ReservationForm: React.FC = () => {
           name="carId"
           value={reservation.carId}
           onChange={handleChange}
-          className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:border-blue-500"
+          className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
           required
         >
           <option value="">Select a car</option>
@@ -89,7 +88,7 @@ const ReservationForm: React.FC = () => {
           name="customerName"
           value={reservation.customerName}
           onChange={handleChange}
-          className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:border-blue-500"
+          className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
           required
         />
       </div>
@@ -101,7 +100,7 @@ const ReservationForm: React.FC = () => {
           name="startDate"
           value={reservation.startDate}
           onChange={handleChange}
-          className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:border-blue-500"
+          className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
           required
         />
       </div>
@@ -113,7 +112,7 @@ const ReservationForm: React.FC = () => {
           name="endDate"
           value={reservation.endDate}
           onChange={handleChange}
-          className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:border-blue-500"
+          className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
           required
         />
       </div>
@@ -124,7 +123,7 @@ const ReservationForm: React.FC = () => {
           name="status"
           value={reservation.status}
           onChange={handleChange}
-          className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:border-blue-500"
+          className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
           required
         >
           <option value="upcoming">Upcoming</option>
